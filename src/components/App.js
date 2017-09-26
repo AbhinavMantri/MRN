@@ -1,10 +1,23 @@
 import React from 'react';
 import Header from './Header';
-import ContestPreview from './ContestPreview';
+import Contest from './Contest';
+import ContestList from './ContestList';
 import axios from 'axios';
 
 
 const color = Math.random() > 0.5 ? 'red' : 'blue';
+
+const pushState = (obj, url) =>
+    window.history.pushState(obj,'',url);
+
+const contests = (data) =>{
+   let contestsObj = data.contests.reduce((obj, contest)=>{
+                    obj[contest.id] = contest;
+                    return obj;
+                 },{});
+
+    return contestsObj;             
+}    
 
 class App extends React.Component {
     state = {
@@ -16,22 +29,40 @@ class App extends React.Component {
         axios.get('/api/contests')
         .then(resp => {
              this.setState({
-                contests: resp.data.contests
+                contests: contests(resp.data)
             });
         })
         .catch(console.error);
         
     };
 
+    fetchContest = (contestId) => {
+        pushState(
+            {currentContestId: contestId},
+            `/contest/${contestId}`
+        );
+
+        //Content
+        this.setState({
+            pageHeader: this.state.contests[contestId].contestName,
+            currentContestId: contestId
+        })
+    };
+
+    currentContent= () => {
+        if(this.state.currentContestId) {
+            return (<Contest {...this.state.contests[this.state.currentContestId]} />);
+        }
+
+        return (<ContestList 
+            contests={this.state.contests} 
+            onContestClick={this.fetchContest} />);
+    }
+
     render() {
         return (<div>
                 <Header message={this.state.pageHeader} />
-                <div>
-                    {this.state.contests.map(contest => 
-                        <ContestPreview key={contest.id} contest={contest} />
-                    )}
-                    
-                </div>
+                {this.currentContent()}
             </div>);
     };
 };
