@@ -1,5 +1,7 @@
 const env = process.env;
 
 export default {
-    port: env.PORT || 8080
+    mongodbUri: 'mongodb://localhost:27017/test',
+    port: env.PORT || 8080,
+    host: env.host || '0.0.0.0'
 } 

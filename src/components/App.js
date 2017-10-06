@@ -2,6 +2,7 @@ import React from 'react';
 import Header from './Header';
 import Contest from './Contest';
 import ContestList from './ContestList';
+import * as api from '../api';
 import axios from 'axios';
 
 
@@ -10,26 +11,37 @@ const color = Math.random() > 0.5 ? 'red' : 'blue';
 const pushState = (obj, url) =>
     window.history.pushState(obj,'',url);
 
-const contests = (data) =>{
-   let contestsObj = data.contests.reduce((obj, contest)=>{
-                    obj[contest.id] = contest;
-                    return obj;
-                 },{});
+// const contests = (data) =>{
+//    let contestsObj = data.contests.reduce((obj, contest)=>{
+//                     obj[contest.id] = contest;
+//                     return obj;
+//                  },{});
 
-    return contestsObj;             
-}    
+//     return contestsObj;             
+// };
+
+const onPopState = handler => {
+    window.onpopstate = handler;
+};
 
 class App extends React.Component {
     state = {
-        pageHeader: "Naming Contests",
         contests: []
+    };
+
+    componentWillMount() {
+        onPopState((event)=>{
+            this.setState({
+                currentContestId: (event.state || {}).currentContestId
+            });
+        });
     };
 
     componentDidMount() {
         axios.get('/api/contests')
         .then(resp => {
              this.setState({
-                contests: contests(resp.data)
+                contests: resp.data
             });
         })
         .catch(console.error);
@@ -43,15 +55,69 @@ class App extends React.Component {
         );
 
         //Content
-        this.setState({
-            pageHeader: this.state.contests[contestId].contestName,
-            currentContestId: contestId
-        })
+        api.fetchContest(contestId)
+        .then(contest => {
+            this.setState({
+                currentContestId: contestId,
+                contests: {
+                    ...this.state.contests,
+                    [contest.id]: contest 
+                }
+            });
+        });
+        
     };
+
+    fetchContestList = () => {
+        pushState(
+            {currentContestId: null},
+            `/`
+        );
+
+        //Content
+        api.fetchContestList()
+        .then(contests => {
+            this.setState({
+                currentContestId: null,
+                contests: contests
+            });
+        });
+        
+    };
+
+    fetchNames =(nameIds) => {
+        api.fetchNames(nameIds).then(names => {
+            this.setState({
+                names
+            });
+        });
+    };
+    lookupName = (nameId) => {
+        if(!this.state.names || !this.state.names[nameId]) {
+            return {
+                name: '...'
+            };
+        }
+
+        return this.state.names[nameId];
+    };
+    
+    currentContest = () => {
+        return this.state.contests[this.state.currentContestId];
+    };
+
+    pageHeader =() => {
+        if(this.state.currentContestId)
+            return this.currentContest().contestName;
+
+        return 'Naming Contests';    
+    }; 
 
     currentContent= () => {
         if(this.state.currentContestId) {
-            return (<Contest {...this.state.contests[this.state.currentContestId]} />);
+            return (<Contest fetchNames={this.fetchNames} 
+                             lookupName={this.lookupName}
+                             onContestLinkClick={this.fetchContestList} {...this.currentContest()} />);
         }
 
         return (<ContestList 
@@ -61,7 +127,7 @@ class App extends React.Component {
 
     render() {
         return (<div>
-                <Header message={this.state.pageHeader} />
+                <Header message={this.pageHeader()} />
                 {this.currentContent()}
             </div>);
     };
